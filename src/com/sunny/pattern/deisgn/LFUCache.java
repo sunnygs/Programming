@@ -17,14 +17,14 @@ class LFUCache {
         System.out.println( cache.get(3));
         System.out.println(cache.get(4));
     }
-    int capacity =2 ;
+    private int capacity =2 ;
     Map<Integer,Integer> keytoval ;
     Map<Integer,Integer> keytofreq;
     Map<Integer, LinkedHashSet<Integer>> freqtokey;
-    int minfreq;
+    private int minfreq;
 
     public LFUCache(int capacity) {
-            capacity = 2;
+            capacity = this.capacity;
             keytoval = new HashMap<>();
             keytofreq = new HashMap<>();
             freqtokey = new HashMap<>();
@@ -33,56 +33,65 @@ class LFUCache {
 
 
     public int get(int key) {
-       if(!keytoval.containsKey(key)) return -1;
-      final int freq = keytofreq.get(key);
-        if(freq == minfreq && freqtokey.get(freq).isEmpty()) {
-            freqtokey.remove(freq);
-            minfreq++;
+        //check key exist
+        if(!keytoval.containsKey(key) || capacity == 0)return -1;
+
+        //update freq
+        int oldfreq = keytofreq.get(key);
+        int newfreq = oldfreq + 1;
+        keytofreq.put(key, newfreq);
+        //get old keyset
+        LinkedHashSet<Integer> oldset = freqtokey.get(oldfreq);
+        oldset.remove(key);
+        if(oldset.isEmpty()) {
+            if(oldfreq == minfreq){
+                minfreq=newfreq;
+            }
+            freqtokey.remove(oldfreq);
         }
-        putFreq(1+freq,key);
 
+        freqtokey.computeIfAbsent(newfreq, f->new LinkedHashSet<>()).add(key);
+        return keytoval.get(key);
 
-        return  keytoval.get(key);
     }
 
-    private void updateFreq(Integer freq, int key) {
-        LinkedHashSet<Integer> set = freqtokey.get(freq);
-        if(set == null){
-            set = new LinkedHashSet<>();
-        }
-        set.add(key);
-        freqtokey.put(freq,set);
-    }
+
 
     public void put(int key, int value) {
-        if(keytoval.containsKey(key)){
+        if(keytoval.containsKey(key) ){
             keytoval.put(key,value);
             get(key);
             return;
         }
-            if(capacity == keytoval.size()){
-                evictLFUKey();
-            }
-            minfreq=1;
-            putFreq(minfreq,key);
-            keytoval.put(key,value);
-    }
+        if(keytoval.size() >= capacity){
+            evictLFU();
+        }
 
-    public void evictLFUKey(){
-         LinkedHashSet<Integer> set  = freqtokey.get(minfreq);
-       //  if(set == null){
-             System.out.println("printset:" +set);
-       //      return;
-       //  }
-         int key = set.iterator().next();
-         set.remove(key);
-         keytofreq.remove(key);
-         keytoval.remove(key);
+        minfreq=1;
+        keytoval.put(key,value);
+        keytofreq.put(key,1);
+        freqtokey.computeIfAbsent(1,f-> new LinkedHashSet<>()).add(key);
 
     }
-    public void putFreq(int freq,int key){
-        keytofreq.put(key,freq);
-        freqtokey.putIfAbsent(freq,new LinkedHashSet<>());
-        freqtokey.get(freq).add(key);
 
-    }}
+    private void evictLFU() {
+        //get min freq set
+        LinkedHashSet<Integer> minfreqset = freqtokey.get(minfreq);
+        int minfreqkey = minfreqset.iterator().next();
+        minfreqset.remove(minfreqkey);
+        keytofreq.remove(minfreqkey);
+        keytoval.remove(minfreqkey);
+    }
+
+
+   }
+/*
+first get: 1
+printset:[1, 2]
+second get: 2
+third get: 3
+printset:[2, 3]
+fourth get: -1
+3
+4
+ */
